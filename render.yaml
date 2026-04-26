@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: vastraa-backend
+    runtime: node
+    plan: free
+    rootDir: backend
+    buildCommand: npm install
+    startCommand: npm start
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: FRONTEND_URL
+        sync: false
