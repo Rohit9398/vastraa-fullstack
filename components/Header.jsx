@@ -1,13 +1,25 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
-import { FiShoppingCart, FiMenu, FiX, FiSearch, FiUser } from "react-icons/fi";
+import { useEffect, useState } from "react";
+import { FiShoppingCart, FiMenu, FiX, FiSearch, FiUser, FiLogOut } from "react-icons/fi";
 import { useCartStore } from "../store/cartStore";
+import { clearAuthSession, getAuthUser } from "../lib/authClient";
 
 export default function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [authUser, setAuthUser] = useState(null);
   const getTotalItems = useCartStore((state) => state.getTotalItems);
+
+  useEffect(() => {
+    setAuthUser(getAuthUser());
+  }, []);
+
+  const handleLogout = () => {
+    clearAuthSession();
+    setAuthUser(null);
+    setMobileMenuOpen(false);
+  };
 
   const navigation = [
     { name: "Home", href: "/" },
@@ -46,9 +58,22 @@ export default function Header() {
             <button className="p-2 hover:bg-gray-100 rounded-full transition-colors">
               <FiSearch className="w-5 h-5 text-secondary-700" />
             </button>
-            <button className="p-2 hover:bg-gray-100 rounded-full transition-colors">
-              <FiUser className="w-5 h-5 text-secondary-700" />
-            </button>
+            {authUser ? (
+              <div className="hidden md:flex items-center gap-2">
+                <span className="text-sm text-secondary-700 max-w-28 truncate">{authUser.name}</span>
+                <button
+                  onClick={handleLogout}
+                  className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+                  title="Logout"
+                >
+                  <FiLogOut className="w-5 h-5 text-secondary-700" />
+                </button>
+              </div>
+            ) : (
+              <Link href="/login" className="p-2 hover:bg-gray-100 rounded-full transition-colors">
+                <FiUser className="w-5 h-5 text-secondary-700" />
+              </Link>
+            )}
             <Link href="/cart" className="relative p-2 hover:bg-gray-100 rounded-full transition-colors">
               <FiShoppingCart className="w-5 h-5 text-secondary-700" />
               {getTotalItems() > 0 && (
@@ -85,6 +110,31 @@ export default function Header() {
                 {item.name}
               </Link>
             ))}
+            {authUser ? (
+              <button
+                onClick={handleLogout}
+                className="w-full text-left py-3 text-secondary-700 hover:text-primary-600 font-medium transition-colors"
+              >
+                Logout ({authUser.name})
+              </button>
+            ) : (
+              <>
+                <Link
+                  href="/login"
+                  className="block py-3 text-secondary-700 hover:text-primary-600 font-medium transition-colors"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  Login
+                </Link>
+                <Link
+                  href="/signup"
+                  className="block py-3 text-secondary-700 hover:text-primary-600 font-medium transition-colors"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  Sign Up
+                </Link>
+              </>
+            )}
           </div>
         )}
       </nav>

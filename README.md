@@ -5,6 +5,7 @@ This project now includes:
 - A `Next.js 14` frontend (`/`)
 - A separate `Express` backend API (`/backend`)
 - Checkout flow with sender + receiver address and email receipt
+- MongoDB-backed user authentication (Signup/Login)
 
 ## Stack
 
@@ -35,6 +36,9 @@ vastraa-frontend-main/
 - `GET /api/health`
 - `GET /api/products`
 - `GET /api/products/:id`
+- `POST /api/auth/signup`
+- `POST /api/auth/login`
+- `GET /api/auth/me`
 - `POST /api/contact`
 - `POST /api/orders`
 - `GET /api/orders`
@@ -68,6 +72,8 @@ Backend (`backend/.env`):
 ```env
 PORT=5000
 FRONTEND_URL=http://localhost:3000
+MONGODB_URI=mongodb+srv://<username>:<password>@<cluster-url>/vastraa?retryWrites=true&w=majority
+JWT_SECRET=change-this-secret
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
 SMTP_USER=your-email@gmail.com

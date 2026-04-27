@@ -2,12 +2,18 @@ const express = require("express");
 const cors = require("cors");
 const dotenv = require("dotenv");
 const nodemailer = require("nodemailer");
+const mongoose = require("mongoose");
+const bcrypt = require("bcryptjs");
+const jwt = require("jsonwebtoken");
+const validator = require("validator");
 const { products } = require("./data/products");
+const User = require("./models/User");
 
 dotenv.config();
 
 const app = express();
 const port = Number(process.env.PORT || 5000);
+const jwtSecret = process.env.JWT_SECRET || "change-this-in-production";
 
 const allowedOrigin = process.env.FRONTEND_URL || "http://localhost:3000";
 
@@ -41,7 +47,52 @@ const transporter = isMailConfigured
 
 function isValidEmail(value) {
   if (!value || typeof value !== "string") return false;
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+  return validator.isEmail(value);
+}
+
+function sanitizeUser(userDoc) {
+  return {
+    id: userDoc._id,
+    name: userDoc.name,
+    email: userDoc.email,
+    createdAt: userDoc.createdAt,
+  };
+}
+
+function signAuthToken(userDoc) {
+  return jwt.sign(
+    {
+      sub: String(userDoc._id),
+      email: userDoc.email,
+      name: userDoc.name,
+    },
+    jwtSecret,
+    { expiresIn: "7d" }
+  );
+}
+
+function authMiddleware(req, res, next) {
+  const authHeader = req.headers.authorization || "";
+
+  if (!authHeader.startsWith("Bearer ")) {
+    return res.status(401).json({
+      success: false,
+      message: "Authorization token missing",
+    });
+  }
+
+  const token = authHeader.replace("Bearer ", "");
+
+  try {
+    const payload = jwt.verify(token, jwtSecret);
+    req.auth = payload;
+    return next();
+  } catch (_error) {
+    return res.status(401).json({
+      success: false,
+      message: "Invalid or expired token",
+    });
+  }
 }
 
 function validateAddress(address) {
@@ -216,6 +267,140 @@ app.get("/api/products/:id", (req, res) => {
   });
 });
 
+app.post("/api/auth/signup", async (req, res) => {
+  try {
+    const { name, email, password } = req.body || {};
+
+    if (!name || typeof name !== "string" || name.trim().length < 2) {
+      return res.status(400).json({
+        success: false,
+        message: "Name must be at least 2 characters",
+      });
+    }
+
+    if (!isValidEmail(email)) {
+      return res.status(400).json({
+        success: false,
+        message: "Valid email is required",
+      });
+    }
+
+    if (!password || typeof password !== "string" || password.length < 6) {
+      return res.status(400).json({
+        success: false,
+        message: "Password must be at least 6 characters",
+      });
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+    const existingUser = await User.findOne({ email: normalizedEmail });
+
+    if (existingUser) {
+      return res.status(409).json({
+        success: false,
+        message: "User already exists with this email",
+      });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+    const createdUser = await User.create({
+      name: name.trim(),
+      email: normalizedEmail,
+      password: hashedPassword,
+    });
+
+    const token = signAuthToken(createdUser);
+
+    return res.status(201).json({
+      success: true,
+      message: "Signup successful",
+      data: {
+        token,
+        user: sanitizeUser(createdUser),
+      },
+    });
+  } catch (error) {
+    console.error("Signup failed:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Signup failed",
+    });
+  }
+});
+
+app.post("/api/auth/login", async (req, res) => {
+  try {
+    const { email, password } = req.body || {};
+
+    if (!isValidEmail(email) || !password) {
+      return res.status(400).json({
+        success: false,
+        message: "Email and password are required",
+      });
+    }
+
+    const normalizedEmail = email.toLowerCase().trim();
+    const user = await User.findOne({ email: normalizedEmail });
+
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid credentials",
+      });
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password);
+
+    if (!isMatch) {
+      return res.status(401).json({
+        success: false,
+        message: "Invalid credentials",
+      });
+    }
+
+    const token = signAuthToken(user);
+
+    return res.json({
+      success: true,
+      message: "Login successful",
+      data: {
+        token,
+        user: sanitizeUser(user),
+      },
+    });
+  } catch (error) {
+    console.error("Login failed:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Login failed",
+    });
+  }
+});
+
+app.get("/api/auth/me", authMiddleware, async (req, res) => {
+  try {
+    const user = await User.findById(req.auth.sub);
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    return res.json({
+      success: true,
+      data: sanitizeUser(user),
+    });
+  } catch (error) {
+    console.error("Fetch user failed:", error);
+    return res.status(500).json({
+      success: false,
+      message: "Could not fetch user profile",
+    });
+  }
+});
+
 app.post("/api/contact", (req, res) => {
   const { name, email, subject, message } = req.body || {};
 
@@ -330,6 +515,22 @@ app.use((err, _req, res, _next) => {
   });
 });
 
-app.listen(port, () => {
-  console.log(`Vastraa backend running on http://localhost:${port}`);
+async function startServer() {
+  const mongoUri = process.env.MONGODB_URI;
+
+  if (!mongoUri) {
+    throw new Error("MONGODB_URI is required for backend startup");
+  }
+
+  await mongoose.connect(mongoUri);
+  console.log("MongoDB connected");
+
+  app.listen(port, () => {
+    console.log(`Vastraa backend running on http://localhost:${port}`);
+  });
+}
+
+startServer().catch((error) => {
+  console.error("Server failed to start:", error.message);
+  process.exit(1);
 });
