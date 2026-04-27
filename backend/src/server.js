@@ -194,13 +194,24 @@ async function sendOrderReceipt(order) {
   }
 
   const fromAddress = process.env.SMTP_FROM || process.env.SMTP_USER;
+  const ownerEmail = (process.env.ORDER_OWNER_EMAIL || "").trim().toLowerCase();
+  const customerEmail = String(order.receiptEmail || "").trim().toLowerCase();
 
   await transporter.sendMail({
     from: fromAddress,
-    to: order.receiptEmail,
+    to: customerEmail,
     subject: `Vastraa Receipt - ${order.id}`,
     html: createReceiptHtml(order),
   });
+
+  if (ownerEmail && ownerEmail !== customerEmail) {
+    await transporter.sendMail({
+      from: fromAddress,
+      to: ownerEmail,
+      subject: `New Order Received - ${order.id}`,
+      html: createReceiptHtml(order),
+    });
+  }
 
   return { sent: true };
 }

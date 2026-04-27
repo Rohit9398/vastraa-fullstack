@@ -79,6 +79,7 @@ SMTP_PORT=587
 SMTP_USER=your-email@gmail.com
 SMTP_PASS=your-app-password
 SMTP_FROM=Vastraa <your-email@gmail.com>
+ORDER_OWNER_EMAIL=owner@yourdomain.com
 ```
 
 ### 4) Run both frontend + backend together
