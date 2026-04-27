@@ -1,13 +1,16 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { FiShoppingCart, FiMenu, FiX, FiSearch, FiUser, FiLogOut } from "react-icons/fi";
 import { useCartStore } from "../store/cartStore";
 import { clearAuthSession, getAuthEventName, getAuthUser } from "../lib/authClient";
 
 export default function Header() {
+  const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
   const [authUser, setAuthUser] = useState(null);
   const getTotalItems = useCartStore((state) => state.getTotalItems);
 
@@ -30,6 +33,8 @@ export default function Header() {
     clearAuthSession();
     setAuthUser(null);
     setMobileMenuOpen(false);
+    setProfileMenuOpen(false);
+    router.push("/login");
   };
 
   const navigation = [
@@ -70,17 +75,33 @@ export default function Header() {
               <FiSearch className="w-5 h-5 text-secondary-700" />
             </button>
             {authUser ? (
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-secondary-700 max-w-20 truncate hidden sm:block">
-                  {authUser.name}
-                </span>
+              <div className="relative">
                 <button
-                  onClick={handleLogout}
-                  className="p-2 hover:bg-gray-100 rounded-full transition-colors"
-                  title="Logout"
+                  onClick={() => setProfileMenuOpen((prev) => !prev)}
+                  className="flex items-center gap-2 p-2 hover:bg-gray-100 rounded-full transition-colors"
+                  title="Profile"
                 >
-                  <FiLogOut className="w-5 h-5 text-secondary-700" />
+                  <FiUser className="w-5 h-5 text-secondary-700" />
+                  <span className="text-sm text-secondary-700 max-w-20 truncate hidden sm:block">
+                    {authUser.name}
+                  </span>
                 </button>
+
+                {profileMenuOpen && (
+                  <div className="absolute right-0 mt-2 w-48 bg-white rounded-lg shadow-lg border border-gray-200 py-2 z-50">
+                    <div className="px-3 py-2 text-sm text-secondary-600 border-b">
+                      Signed in as
+                      <div className="font-semibold text-secondary-900 truncate">{authUser.name}</div>
+                    </div>
+                    <button
+                      onClick={handleLogout}
+                      className="w-full text-left px-3 py-2 text-secondary-700 hover:bg-gray-50 flex items-center gap-2"
+                    >
+                      <FiLogOut className="w-4 h-4" />
+                      Logout
+                    </button>
+                  </div>
+                )}
               </div>
             ) : (
               <Link href="/login" className="p-2 hover:bg-gray-100 rounded-full transition-colors">

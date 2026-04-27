@@ -429,7 +429,7 @@ app.post("/api/contact", (req, res) => {
   });
 });
 
-app.post("/api/orders", async (req, res) => {
+app.post("/api/orders", authMiddleware, async (req, res) => {
   const { items, subtotal, tax, total, senderAddress, receiverAddress, receiptEmail } =
     req.body || {};
 

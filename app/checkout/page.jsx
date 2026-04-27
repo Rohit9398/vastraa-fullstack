@@ -1,10 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCartStore } from "../../store/cartStore";
 import { apiUrl } from "../../lib/api";
 import { toast } from "react-toastify";
+import { getAuthToken } from "../../lib/authClient";
 
 const initialAddress = {
   fullName: "",
@@ -18,6 +20,7 @@ const initialAddress = {
 };
 
 export default function CheckoutPage() {
+  const router = useRouter();
   const { items, getTotalPrice, clearCart } = useCartStore();
 
   const subtotal = getTotalPrice();
@@ -54,11 +57,19 @@ export default function CheckoutPage() {
 
     try {
       setIsSubmitting(true);
+      const token = getAuthToken();
+
+      if (!token) {
+        toast.error("Please login to place your order");
+        router.push("/login");
+        return;
+      }
 
       const response = await fetch(apiUrl("/api/orders"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           items,
@@ -74,6 +85,11 @@ export default function CheckoutPage() {
       const json = await response.json();
 
       if (!response.ok || !json.success) {
+        if (response.status === 401) {
+          toast.error("Session expired, please login again");
+          router.push("/login");
+          return;
+        }
         throw new Error(json.message || "Could not place order");
       }
 
@@ -95,6 +111,13 @@ export default function CheckoutPage() {
       setIsSubmitting(false);
     }
   };
+
+  useEffect(() => {
+    const token = getAuthToken();
+    if (!token) {
+      router.replace("/login");
+    }
+  }, [router]);
 
   if (items.length === 0 && !orderInfo) {
     return (

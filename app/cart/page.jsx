@@ -1,13 +1,20 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useCartStore } from "../../store/cartStore";
 import Image from "next/image";
 import Link from "next/link";
 import { FiTrash2, FiShoppingBag } from "react-icons/fi";
 import { toast } from "react-toastify";
+import { getAuthUser } from "../../lib/authClient";
 
 export default function CartPage() {
   const { items, removeItem, updateQuantity, getTotalPrice, clearCart } = useCartStore();
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+    setIsLoggedIn(Boolean(getAuthUser()));
+  }, []);
 
   if (items.length === 0) {
     return (
@@ -129,7 +136,10 @@ export default function CartPage() {
                 </div>
               </div>
 
-              <Link href="/checkout" className="btn-primary w-full justify-center mb-4">
+              <Link
+                href={isLoggedIn ? "/checkout" : "/login"}
+                className="btn-primary w-full justify-center mb-4"
+              >
                 Proceed to Checkout
               </Link>
 
