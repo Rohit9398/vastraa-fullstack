@@ -7,18 +7,25 @@ export const metadata = {
 };
 
 async function getProducts() {
-  try {
-    const response = await fetch(apiUrl("/api/products"), { cache: "no-store" });
+  for (let attempt = 0; attempt < 2; attempt += 1) {
+    try {
+      const response = await fetch(apiUrl("/api/products"), { cache: "no-store" });
 
-    if (!response.ok) {
-      return [];
+      if (!response.ok) {
+        throw new Error("Products API request failed");
+      }
+
+      const json = await response.json();
+      return Array.isArray(json.data) ? json.data : [];
+    } catch (_error) {
+      if (attempt === 1) {
+        return [];
+      }
+      await new Promise((resolve) => setTimeout(resolve, 1200));
     }
-
-    const json = await response.json();
-    return Array.isArray(json.data) ? json.data : [];
-  } catch (_error) {
-    return [];
   }
+
+  return [];
 }
 
 export default async function ShopPage() {
