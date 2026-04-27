@@ -8,9 +8,7 @@ export const metadata = {
 
 async function getProducts() {
   try {
-    const response = await fetch(apiUrl("/api/products"), {
-      next: { revalidate: 300 },
-    });
+    const response = await fetch(apiUrl("/api/products"), { cache: "no-store" });
 
     if (!response.ok) {
       return [];

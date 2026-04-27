@@ -5,7 +5,7 @@ import { apiUrl } from "../lib/api";
 async function getFeaturedProducts() {
   try {
     const response = await fetch(apiUrl("/api/products?featured=true"), {
-      next: { revalidate: 300 },
+      cache: "no-store",
     });
 
     if (!response.ok) {
