@@ -5,45 +5,9 @@ import Image from "next/image";
 import Link from "next/link";
 import { FiTrash2, FiShoppingBag } from "react-icons/fi";
 import { toast } from "react-toastify";
-import { useState } from "react";
-import { apiUrl } from "../../lib/api";
 
 export default function CartPage() {
   const { items, removeItem, updateQuantity, getTotalPrice, clearCart } = useCartStore();
-  const [isCheckingOut, setIsCheckingOut] = useState(false);
-
-  const handleCheckout = async () => {
-    try {
-      setIsCheckingOut(true);
-      const subtotal = getTotalPrice();
-      const tax = Math.round(subtotal * 0.18);
-      const total = subtotal + tax;
-
-      const response = await fetch(apiUrl("/api/orders"), {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          items,
-          subtotal,
-          tax,
-          total,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error("Failed to place order");
-      }
-
-      toast.success("Order placed successfully!");
-      clearCart();
-    } catch (_error) {
-      toast.error("Checkout failed. Please try again.");
-    } finally {
-      setIsCheckingOut(false);
-    }
-  };
 
   if (items.length === 0) {
     return (
@@ -165,13 +129,9 @@ export default function CartPage() {
                 </div>
               </div>
 
-              <button
-                onClick={handleCheckout}
-                className="btn-primary w-full justify-center mb-4"
-                disabled={isCheckingOut}
-              >
-                {isCheckingOut ? "Processing..." : "Proceed to Checkout"}
-              </button>
+              <Link href="/checkout" className="btn-primary w-full justify-center mb-4">
+                Proceed to Checkout
+              </Link>
 
               <Link href="/shop" className="btn-outline w-full justify-center">
                 Continue Shopping

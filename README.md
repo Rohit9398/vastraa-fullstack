@@ -4,6 +4,7 @@ This project now includes:
 
 - A `Next.js 14` frontend (`/`)
 - A separate `Express` backend API (`/backend`)
+- Checkout flow with sender + receiver address and email receipt
 
 ## Stack
 
@@ -38,6 +39,8 @@ vastraa-frontend-main/
 - `POST /api/orders`
 - `GET /api/orders`
 
+`POST /api/orders` now accepts cart items, sender address, receiver address, and `receiptEmail`, then sends full receipt over SMTP.
+
 ## Local Development
 
 ### 1) Install frontend dependencies
@@ -65,6 +68,11 @@ Backend (`backend/.env`):
 ```env
 PORT=5000
 FRONTEND_URL=http://localhost:3000
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=your-email@gmail.com
+SMTP_PASS=your-app-password
+SMTP_FROM=Vastraa <your-email@gmail.com>
 ```
 
 ### 4) Run both frontend + backend together
