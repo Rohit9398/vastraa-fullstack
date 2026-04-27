@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { FiShoppingCart, FiMenu, FiX, FiSearch, FiUser, FiLogOut } from "react-icons/fi";
 import { useCartStore } from "../store/cartStore";
-import { clearAuthSession, getAuthUser } from "../lib/authClient";
+import { clearAuthSession, getAuthEventName, getAuthUser } from "../lib/authClient";
 
 export default function Header() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -12,7 +12,18 @@ export default function Header() {
   const getTotalItems = useCartStore((state) => state.getTotalItems);
 
   useEffect(() => {
-    setAuthUser(getAuthUser());
+    const syncAuthUser = () => {
+      setAuthUser(getAuthUser());
+    };
+
+    syncAuthUser();
+    window.addEventListener("storage", syncAuthUser);
+    window.addEventListener(getAuthEventName(), syncAuthUser);
+
+    return () => {
+      window.removeEventListener("storage", syncAuthUser);
+      window.removeEventListener(getAuthEventName(), syncAuthUser);
+    };
   }, []);
 
   const handleLogout = () => {
@@ -59,8 +70,10 @@ export default function Header() {
               <FiSearch className="w-5 h-5 text-secondary-700" />
             </button>
             {authUser ? (
-              <div className="hidden md:flex items-center gap-2">
-                <span className="text-sm text-secondary-700 max-w-28 truncate">{authUser.name}</span>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-secondary-700 max-w-20 truncate hidden sm:block">
+                  {authUser.name}
+                </span>
                 <button
                   onClick={handleLogout}
                   className="p-2 hover:bg-gray-100 rounded-full transition-colors"
