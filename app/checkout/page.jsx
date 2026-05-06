@@ -122,6 +122,49 @@ export default function CheckoutPage() {
     }
   }, [router]);
 
+  useEffect(() => {
+    if (!orderInfo?.orderId || orderInfo.receiptStatus !== "queued") {
+      return;
+    }
+
+    const token = getAuthToken();
+    if (!token) {
+      return;
+    }
+
+    let attempts = 0;
+    const intervalId = window.setInterval(async () => {
+      attempts += 1;
+
+      try {
+        const response = await fetch(apiUrl(`/api/orders/${orderInfo.orderId}`), {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        const json = await response.json();
+
+        if (response.ok && json.receipt?.status && json.receipt.status !== "queued") {
+          setOrderInfo((prev) => ({
+            ...prev,
+            receiptSent: Boolean(json.receipt.sent),
+            receiptStatus: json.receipt.status,
+            receiptReason: json.receipt.reason || "",
+          }));
+          window.clearInterval(intervalId);
+        }
+      } catch (_error) {
+        // Keep the order confirmation visible even if a status refresh fails.
+      }
+
+      if (attempts >= 10) {
+        window.clearInterval(intervalId);
+      }
+    }, 3000);
+
+    return () => window.clearInterval(intervalId);
+  }, [orderInfo?.orderId, orderInfo?.receiptStatus]);
+
   if (items.length === 0 && !orderInfo) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center py-16">
@@ -151,6 +194,10 @@ export default function CheckoutPage() {
               ? "Receipt has been sent to your email."
               : orderInfo.receiptStatus === "queued"
               ? "Receipt email is being sent. Please also check spam or promotions."
+              : orderInfo.receiptStatus === "failed"
+              ? `Receipt email failed: ${orderInfo.receiptReason}`
+              : orderInfo.receiptStatus === "not_configured"
+              ? `Receipt email not configured: ${orderInfo.receiptReason}`
               : `Order created. Receipt email not sent: ${orderInfo.receiptReason}`}
           </p>
           <Link href="/shop" className="btn-primary inline-flex">

@@ -232,6 +232,10 @@ function setReceiptStatus(order, receipt) {
 }
 
 function getMailFailureReason(error) {
+  if (error && error.response) {
+    return `Email send failed: ${error.response}`;
+  }
+
   if (error && error.code) {
     return `Email send failed (${error.code})`;
   }
@@ -255,24 +259,26 @@ function queueOrderReceipt(order) {
     reason: "Receipt email is queued",
   });
 
-  setImmediate(async () => {
-    try {
-      await sendOrderReceipt(order);
-      setReceiptStatus(order, {
-        sent: true,
-        status: "sent",
-      });
-    } catch (error) {
-      console.error("Receipt email failed:", error);
-      setReceiptStatus(order, {
-        sent: false,
-        status: "failed",
-        reason: getMailFailureReason(error),
-      });
-    }
-  });
+  setImmediate(() => runReceiptJob(order));
 
   return queuedReceipt;
+}
+
+async function runReceiptJob(order) {
+  try {
+    await sendOrderReceipt(order);
+    return setReceiptStatus(order, {
+      sent: true,
+      status: "sent",
+    });
+  } catch (error) {
+    console.error("Receipt email failed:", error);
+    return setReceiptStatus(order, {
+      sent: false,
+      status: "failed",
+      reason: getMailFailureReason(error),
+    });
+  }
 }
 
 app.get("/api/health", (_req, res) => {
@@ -567,6 +573,29 @@ app.get("/api/orders", authMiddleware, (req, res) => {
     success: true,
     count: userOrders.length,
     data: userOrders,
+  });
+});
+
+app.get("/api/orders/:id", authMiddleware, (req, res) => {
+  const order = orders.find(
+    (entry) => entry.id === req.params.id && entry.userId === req.auth.sub
+  );
+
+  if (!order) {
+    return res.status(404).json({
+      success: false,
+      message: "Order not found",
+    });
+  }
+
+  return res.json({
+    success: true,
+    data: order,
+    receipt: order.receipt || {
+      sent: false,
+      status: "unknown",
+      reason: "",
+    },
   });
 });
 
