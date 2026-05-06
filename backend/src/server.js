@@ -38,6 +38,9 @@ const transporter = isMailConfigured
       host: process.env.SMTP_HOST,
       port: Number(process.env.SMTP_PORT),
       secure: Number(process.env.SMTP_PORT) === 465,
+      connectionTimeout: 10000,
+      greetingTimeout: 10000,
+      socketTimeout: 10000,
       auth: {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS,
@@ -188,6 +191,7 @@ async function sendOrderReceipt(order) {
   if (!transporter) {
     return {
       sent: false,
+      status: "not_configured",
       reason:
         "SMTP is not configured. Set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM.",
     };
@@ -214,6 +218,61 @@ async function sendOrderReceipt(order) {
   }
 
   return { sent: true };
+}
+
+function setReceiptStatus(order, receipt) {
+  order.receipt = {
+    sent: Boolean(receipt.sent),
+    status: receipt.status,
+    reason: receipt.reason || "",
+    updatedAt: new Date().toISOString(),
+  };
+
+  return order.receipt;
+}
+
+function getMailFailureReason(error) {
+  if (error && error.code) {
+    return `Email send failed (${error.code})`;
+  }
+
+  return "Email send failed";
+}
+
+function queueOrderReceipt(order) {
+  if (!transporter) {
+    return setReceiptStatus(order, {
+      sent: false,
+      status: "not_configured",
+      reason:
+        "SMTP is not configured. Set SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM.",
+    });
+  }
+
+  const queuedReceipt = setReceiptStatus(order, {
+    sent: false,
+    status: "queued",
+    reason: "Receipt email is queued",
+  });
+
+  setImmediate(async () => {
+    try {
+      await sendOrderReceipt(order);
+      setReceiptStatus(order, {
+        sent: true,
+        status: "sent",
+      });
+    } catch (error) {
+      console.error("Receipt email failed:", error);
+      setReceiptStatus(order, {
+        sent: false,
+        status: "failed",
+        reason: getMailFailureReason(error),
+      });
+    }
+  });
+
+  return queuedReceipt;
 }
 
 app.get("/api/health", (_req, res) => {
@@ -474,6 +533,8 @@ app.post("/api/orders", authMiddleware, async (req, res) => {
 
   const createdOrder = {
     id: `ORD-${Date.now()}`,
+    userId: req.auth.sub,
+    userEmail: req.auth.email,
     items,
     subtotal,
     tax,
@@ -486,35 +547,26 @@ app.post("/api/orders", authMiddleware, async (req, res) => {
   };
 
   orders.push(createdOrder);
-  try {
-    const receipt = await sendOrderReceipt(createdOrder);
-    return res.status(201).json({
-      success: true,
-      message: receipt.sent
-        ? "Order created and receipt emailed"
+  const receipt = queueOrderReceipt(createdOrder);
+
+  return res.status(201).json({
+    success: true,
+    message:
+      receipt.status === "queued"
+        ? "Order created. Receipt email queued"
         : "Order created. Receipt email not sent",
-      receipt,
-      data: createdOrder,
-    });
-  } catch (error) {
-    console.error("Receipt email failed:", error);
-    return res.status(201).json({
-      success: true,
-      message: "Order created. Receipt email failed",
-      receipt: {
-        sent: false,
-        reason: "Email send failed",
-      },
-      data: createdOrder,
-    });
-  }
+    receipt,
+    data: createdOrder,
+  });
 });
 
-app.get("/api/orders", (_req, res) => {
+app.get("/api/orders", authMiddleware, (req, res) => {
+  const userOrders = orders.filter((order) => order.userId === req.auth.sub);
+
   res.json({
     success: true,
-    count: orders.length,
-    data: orders,
+    count: userOrders.length,
+    data: userOrders,
   });
 });
 

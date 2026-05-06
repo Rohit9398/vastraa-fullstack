@@ -95,6 +95,8 @@ export default function CheckoutPage() {
 
       if (json.receipt?.sent) {
         toast.success("Order placed and receipt sent to email");
+      } else if (json.receipt?.status === "queued") {
+        toast.success("Order placed. Receipt email is being sent.");
       } else {
         toast.success("Order placed. Receipt email not sent.");
       }
@@ -102,6 +104,7 @@ export default function CheckoutPage() {
       setOrderInfo({
         orderId: json.data?.id,
         receiptSent: Boolean(json.receipt?.sent),
+        receiptStatus: json.receipt?.status || "",
         receiptReason: json.receipt?.reason || "",
       });
       clearCart();
@@ -146,7 +149,9 @@ export default function CheckoutPage() {
           <p className="text-secondary-700 mb-6">
             {orderInfo.receiptSent
               ? "Receipt has been sent to your email."
-              : `Order created. Receipt email pending: ${orderInfo.receiptReason}`}
+              : orderInfo.receiptStatus === "queued"
+              ? "Receipt email is being sent. Please also check spam or promotions."
+              : `Order created. Receipt email not sent: ${orderInfo.receiptReason}`}
           </p>
           <Link href="/shop" className="btn-primary inline-flex">
             Continue Shopping
